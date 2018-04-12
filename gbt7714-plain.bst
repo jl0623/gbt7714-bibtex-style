@@ -38,6 +38,7 @@ ENTRY
     number
     organization
     pages
+    pinyin
     publisher
     school
     series
@@ -98,6 +99,24 @@ FUNCTION {punct.slash}
 
 FUNCTION {punct.space}
 { " "
+}
+
+FUNCTION {not}
+{   { #0 }
+    { #1 }
+  if$
+}
+
+FUNCTION {and}
+{   'skip$
+    { pop$ #0 }
+  if$
+}
+
+FUNCTION {or}
+{   { pop$ #1 }
+    'skip$
+  if$
 }
 
 FUNCTION {output.nonnull}
@@ -171,7 +190,13 @@ FUNCTION {output.check}
 }
 
 FUNCTION {fin.entry}
-{ add.period$
+{ type$ "book" =
+  type$ "inbook" = or
+  type$ "incollection" = or
+  type$ "collection" = or
+    'skip$
+    'add.period$
+  if$
   write$
   newline$
 }
@@ -206,24 +231,6 @@ FUNCTION {new.slash}
 { output.state before.all =
     'skip$
     { after.slash 'output.state := }
-  if$
-}
-
-FUNCTION {not}
-{   { #0 }
-    { #1 }
-  if$
-}
-
-FUNCTION {and}
-{   'skip$
-    { pop$ #0 }
-  if$
-}
-
-FUNCTION {or}
-{   { pop$ #1 }
-    'skip$
   if$
 }
 
@@ -363,9 +370,7 @@ FUNCTION {format.names}
             { format.et.al }
             { t get.str.lang 'name.lang :=
               name.lang lang.en =
-                { t #1 "{vv~}{ll}{ f{~}}" format.name$ "u" change.case$
-                  t #1 "{, jj}" format.name$ *
-                }
+                { t #1 "{vv~}{ll}{ f{~}}{, jj}" format.name$ }
                 { t #1 "{ll}{ff}" format.name$ }
               if$
             }
@@ -426,31 +431,8 @@ FUNCTION {format.url}
   if$
 }
 
-FUNCTION {is.doi.in.url}
-{ url empty$
-    { #0 }
-    { doi text.length$ 'stringlength :=
-      url text.length$ 'charptr :=
-        { url charptr stringlength substring$ doi = not
-          charptr #0 >
-          and
-        }
-        { charptr #1 - 'charptr := }
-      while$
-      charptr
-    }
-  if$
-}
-
 FUNCTION {format.doi}
-{ doi empty$
-    { "" }
-    { is.doi.in.url
-        { "" }
-        { new.block "\doi{" doi * "}" * }
-      if$
-    }
-  if$
+{ ""
 }
 
 FUNCTION {format.title}
@@ -1077,6 +1059,7 @@ FUNCTION {monograph}
     }
   if$
   output
+  new.block
   format.year "year" output.check
   new.block
   format.series.vol.num.title "title" output.check
@@ -1099,6 +1082,7 @@ FUNCTION {incollection}
 { output.bibitem
   format.authors "author" output.check
   author format.key output
+  new.block
   format.year "year" output.check
   new.block
   format.title "title" output.check
@@ -1125,6 +1109,7 @@ FUNCTION {periodical}
 { output.bibitem
   format.authors "author" output.check
   author format.key output
+  new.block
   format.year "year" output.check
   new.block
   format.title "title" output.check
@@ -1144,6 +1129,7 @@ FUNCTION {article.in.journal}
 { output.bibitem
   format.authors "author" output.check
   author format.key output
+  new.block
   format.year "year" output.check
   new.block
   format.title "title" output.check
@@ -1165,6 +1151,7 @@ FUNCTION {patent}
 { output.bibitem
   format.authors output
   author format.key output
+  new.block
   format.year "year" output.check
   new.block
   format.title
@@ -1187,6 +1174,7 @@ FUNCTION {online}
 { output.bibitem
   format.authors output
   author format.key output
+  new.block
   format.year "year" output.check
   new.block
   format.series.vol.num.title "title" output.check
@@ -1259,7 +1247,11 @@ FUNCTION {map}
 }
 
 FUNCTION {mastersthesis}
-{ "D" set.mark
+{ is.in.chinese
+    { "\thumasterbib{}" }
+    { "D" }
+  if$
+ set.mark
   monograph
 }
 
@@ -1268,7 +1260,14 @@ FUNCTION {newspaper}
   article.in.journal
 }
 
-FUNCTION {phdthesis} { mastersthesis }
+FUNCTION {phdthesis}
+{ is.in.chinese
+    { "\thuphdbib{}" }
+    { "D" }
+  if$
+ set.mark
+  monograph
+}
 
 FUNCTION {proceedings}
 { "C" set.mark
@@ -1565,6 +1564,17 @@ FUNCTION {sort.format.title}
   #1 global.max$ substring$
 }
 
+FUNCTION {key.or.pinyin}
+{ key empty$
+    { pinyin empty$
+        { "" }
+        { pinyin }
+      if$
+    }
+    { key }
+  if$
+}
+
 FUNCTION {anonymous.sort}
 { is.in.chinese
     { "yi4 ming2" }
@@ -1573,18 +1583,18 @@ FUNCTION {anonymous.sort}
 }
 
 FUNCTION {author.sort}
-{ key empty$
+{ key.or.pinyin empty$
     { author empty$
         { anonymous.sort }
         { author sort.format.names }
       if$
     }
-    { key sortify }
+    { key.or.pinyin sortify }
   if$
 }
 
 FUNCTION {author.editor.sort}
-{ key empty$
+{ key.or.pinyin empty$
     { author empty$
         { editor empty$
             { anonymous.sort }
@@ -1594,12 +1604,12 @@ FUNCTION {author.editor.sort}
         { author sort.format.names }
       if$
     }
-    { key sortify }
+    { key.or.pinyin sortify }
   if$
 }
 
 FUNCTION {author.organization.sort}
-{ key empty$
+{ key.or.pinyin empty$
     { author empty$
         { organization empty$
             { anonymous.sort }
@@ -1609,12 +1619,12 @@ FUNCTION {author.organization.sort}
         { author sort.format.names }
       if$
     }
-    { key sortify }
+    { key.or.pinyin sortify }
   if$
 }
 
 FUNCTION {editor.organization.sort}
-{ key empty$
+{ key.or.pinyin empty$
     { editor empty$
         { organization empty$
             { anonymous.sort }
@@ -1624,7 +1634,7 @@ FUNCTION {editor.organization.sort}
         { editor sort.format.names }
       if$
     }
-    { key sortify }
+    { key.or.pinyin sortify }
   if$
 }
 
